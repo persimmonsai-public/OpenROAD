@@ -1430,6 +1430,24 @@ void RepairDesign::repairNet(const BufferedNetPtr& bnet,
                              int& wire_length,  // dbu
                              sta::PinSeq& load_pins)
 {
+  // Guard against stack overflow on very deep BufferedNet trees (nets with
+  // many vias and wire segments on fine-pitch technologies).
+  constexpr int kMaxRecursionDepth = 500;
+  if (level > kMaxRecursionDepth) {
+    wire_length = 0;
+    load_pins.clear();
+    debugPrint(logger_,
+               RSZ,
+               "repair_net",
+               2,
+               "{:{}s}repairNet recursion depth limit ({}) reached, skipping "
+               "subtree",
+               "",
+               level,
+               kMaxRecursionDepth);
+    return;
+  }
+
   switch (bnet->type()) {
     case BufferedNetType::wire:
       repairNetWire(bnet, level, wire_length, load_pins);

@@ -7062,12 +7062,34 @@ odb::Point Resizer::clampLocToCore(const odb::Point& loc,
   if (!core_exists_) {
     return loc;
   }
+  int x = loc.x();
+  int y = loc.y();
   const int x_max = std::max(
       core_.xMin(), core_.xMax() - static_cast<int>(master->getWidth()));
   const int y_max = std::max(
       core_.yMin(), core_.yMax() - static_cast<int>(master->getHeight()));
-  return {std::clamp(loc.x(), core_.xMin(), x_max),
-          std::clamp(loc.y(), core_.yMin(), y_max)};
+
+  // Opt-in (RSZ_SNAP_TO_SITE_GRID=1): snap to the site grid so detailed
+  // placement can place the cell without displacement.  This matters on
+  // technologies whose track pitch is not an integer multiple of the site
+  // width, where an unsnapped location lands between sites.
+  const char* snap_env = std::getenv("RSZ_SNAP_TO_SITE_GRID");
+  if (snap_env != nullptr && snap_env[0] != '\0'
+      && std::string_view(snap_env) != "0" && block_ != nullptr) {
+    auto rows = block_->getRows();
+    if (!rows.empty()) {
+      odb::dbSite* site = (*rows.begin())->getSite();
+      const int site_w = site->getWidth();
+      const int site_h = site->getHeight();
+      if (site_w > 0 && site_h > 0) {
+        x = core_.xMin() + ((x - core_.xMin() + site_w / 2) / site_w) * site_w;
+        y = core_.yMin() + ((y - core_.yMin() + site_h / 2) / site_h) * site_h;
+      }
+    }
+  }
+
+  return {std::clamp(x, core_.xMin(), x_max),
+          std::clamp(y, core_.yMin(), y_max)};
 }
 
 float Resizer::portCapacitance(sta::LibertyPort* input,
