@@ -7,6 +7,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -604,6 +605,22 @@ void Opendp::initGrid(const bool check_fixed_supply_vias)
   } else {
     drc_engine_->clearFixedSupplyVias();
   }
+  if (drc_engine_) {
+    if (isPrecisePg()) {
+      drc_engine_->initPrecisePg(block_);
+    } else if (drc_engine_->isPrecisePg()) {
+      drc_engine_->clearPrecisePg();
+    }
+  }
+}
+
+bool Opendp::isPrecisePg() const
+{
+  if (precise_pg_) {
+    return true;
+  }
+  const char* env = std::getenv("DPL_PRECISE_PG");
+  return env != nullptr && env[0] != '\0' && std::string(env) != "0";
 }
 
 void Opendp::deleteGrid()

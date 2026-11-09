@@ -53,6 +53,7 @@ detailed_placement
     [-drc_penalty penalty]
     [-disable_window_extension]
     [-quiet]
+    [-precise_pg]
 ```
 
 #### Options
@@ -71,6 +72,7 @@ detailed_placement
 | `-disable_window_extension` | NegotiationLegalizer: disables all search-window extensions, so the window is fixed to the base `-site_search_window`/`-row_search_window` size regardless of cell size or nearby walls. By default, the effective search window can instead grow past base sizing in two ways: (1) it's extended to at least the cell's own width/height, and (2) extended if cut short by a macro or core boundary. |
 | `-drc_penalty` | NegotiationLegalizer: priority to DRC violations, ramped up each iteration to push DRC cleanup later in the run. Lower values tolerate DRC violations early on while overlaps are resolved. Default `5`, `0` allowed (disables the escalating per-candidate penalty, DRC-violating cells still accrue history cost separately). |
 | `-quiet` | Less verbose, shows: number of instances moves, displacement, HPWL, and runtime at logs and json. Use it when dpl is called by other stages (e.g. after clock tree synthesis or antenna repair). |
+| `-precise_pg` | Precise power-grid-aware blocked-layer check. By default a vertical special-net wire on the second or third routing layer blocks every site it covers for any instance that has pins on that layer or the one below. With this flag that pixel mask is only a pre-filter: legality is decided from the instance's pin and obstruction rectangles on the wire's layer (in the orientation it will be placed in) against the wire rectangles bloated by the layer's minimum `SPACING`. The setting stays on for later `detailed_placement`, `check_placement` and `improve_placement` calls in the session. Setting the environment variable `DPL_PRECISE_PG=1` has the same effect. |
 
 The PDN-aware check covers overlap, conservative width/parallel-run-length
 routing spacing, and default cut spacing, with same-net pin exemptions.
@@ -165,6 +167,7 @@ check_placement
     [-fixed]
     [-placeable]
     [-report_file_name filename]
+    [-precise_pg]
 ```
 
 #### Options
@@ -176,6 +179,7 @@ check_placement
 | `-fixed` | Check fixed instances and macros. |
 | `-placeable` | Check movable cells. |
 | `-report_file_name` | File name for saving the report to (e.g. `report.json`.) |
+| `-precise_pg` | Check blocked layers with the precise power-grid rule (see `detailed_placement -precise_pg`). |
 
 ### Optimize Mirroring
 

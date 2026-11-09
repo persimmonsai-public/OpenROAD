@@ -1,0 +1,34 @@
+VERSION 5.8 ;
+DIVIDERCHAR "/" ;
+BUSBITCHARS "[]" ;
+DESIGN precise_pg_check ;
+UNITS DISTANCE MICRONS 1000 ;
+DIEAREA ( 0 0 ) ( 10000 4000 ) ;
+ROW ROW_0 pgcore 0 0 N DO 100 BY 1 STEP 100 0 ;
+ROW ROW_1 pgcore 0 1000 FS DO 100 BY 1 STEP 100 0 ;
+ROW ROW_2 pgcore 0 2000 N DO 100 BY 1 STEP 100 0 ;
+ROW ROW_3 pgcore 0 3000 FS DO 100 BY 1 STEP 100 0 ;
+COMPONENTS 4 ;
+    - ok_comb PGCOMB + PLACED ( 500 0 ) N ;
+    - fn_comb PGCOMB + PLACED ( 2500 0 ) FN ;
+    - bad_comb PGCOMB + PLACED ( 4400 0 ) N ;
+    - ok_inv PGINV + PLACED ( 6900 0 ) N ;
+END COMPONENTS
+SPECIALNETS 1 ;
+    - VDD ( * VDD ) + USE POWER
+      + ROUTED M2 20 + SHAPE STRIPE ( 1070 0 ) ( 1070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 2070 0 ) ( 2070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 3070 0 ) ( 3070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 4070 0 ) ( 4070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 5070 0 ) ( 5070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 6070 0 ) ( 6070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 7070 0 ) ( 7070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 8070 0 ) ( 8070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 9070 0 ) ( 9070 4000 ) ;
+END SPECIALNETS
+NETS 3 ;
+    - n0 ( ok_comb Y ) ( fn_comb A ) ;
+    - n1 ( fn_comb Y ) ( bad_comb A ) ;
+    - n2 ( bad_comb Y ) ( ok_inv A ) ;
+END NETS
+END DESIGN

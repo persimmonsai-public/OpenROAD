@@ -1,0 +1,56 @@
+VERSION 5.8 ;
+DIVIDERCHAR "/" ;
+BUSBITCHARS "[]" ;
+DESIGN precise_pg_place ;
+UNITS DISTANCE MICRONS 1000 ;
+DIEAREA ( 0 0 ) ( 10000 4000 ) ;
+ROW ROW_0 pgcore 0 0 N DO 100 BY 1 STEP 100 0 ;
+ROW ROW_1 pgcore 0 1000 FS DO 100 BY 1 STEP 100 0 ;
+ROW ROW_2 pgcore 0 2000 N DO 100 BY 1 STEP 100 0 ;
+ROW ROW_3 pgcore 0 3000 FS DO 100 BY 1 STEP 100 0 ;
+COMPONENTS 15 ;
+    - c0 PGCOMB + PLACED ( 500 1000 ) FS ;
+    - c1 PGCOMB + PLACED ( 3500 1000 ) FS ;
+    - c2 PGCOMB + PLACED ( 5500 2000 ) N ;
+    - i0 PGINV + PLACED ( 800 0 ) N ;
+    - i1 PGINV + PLACED ( 1100 0 ) N ;
+    - i10 PGINV + PLACED ( 9000 2000 ) N ;
+    - i11 PGINV + PLACED ( 2000 3000 ) FS ;
+    - i2 PGINV + PLACED ( 2400 1000 ) FS ;
+    - i3 PGINV + PLACED ( 2700 1000 ) FS ;
+    - i4 PGINV + PLACED ( 4000 3000 ) FS ;
+    - i5 PGINV + PLACED ( 5000 2000 ) N ;
+    - i6 PGINV + PLACED ( 6800 0 ) N ;
+    - i7 PGINV + PLACED ( 7100 0 ) N ;
+    - i8 PGINV + PLACED ( 8100 3000 ) FS ;
+    - i9 PGINV + PLACED ( 8800 1000 ) FS ;
+END COMPONENTS
+SPECIALNETS 1 ;
+    - VDD ( * VDD ) + USE POWER
+      + ROUTED M2 20 + SHAPE STRIPE ( 1070 0 ) ( 1070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 2070 0 ) ( 2070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 3070 0 ) ( 3070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 4070 0 ) ( 4070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 5070 0 ) ( 5070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 6070 0 ) ( 6070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 7070 0 ) ( 7070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 8070 0 ) ( 8070 4000 )
+      NEW M2 20 + SHAPE STRIPE ( 9070 0 ) ( 9070 4000 ) ;
+END SPECIALNETS
+NETS 14 ;
+    - n0 ( c0 Y ) ( c1 A ) + USE SIGNAL ;
+    - n1 ( c1 Y ) ( c2 A ) + USE SIGNAL ;
+    - n10 ( i7 Y ) ( i8 A ) + USE SIGNAL ;
+    - n11 ( i8 Y ) ( i9 A ) + USE SIGNAL ;
+    - n12 ( i9 Y ) ( i10 A ) + USE SIGNAL ;
+    - n13 ( i10 Y ) ( i11 A ) + USE SIGNAL ;
+    - n2 ( c2 Y ) ( i0 A ) + USE SIGNAL ;
+    - n3 ( i0 Y ) ( i1 A ) + USE SIGNAL ;
+    - n4 ( i1 Y ) ( i2 A ) + USE SIGNAL ;
+    - n5 ( i2 Y ) ( i3 A ) + USE SIGNAL ;
+    - n6 ( i3 Y ) ( i4 A ) + USE SIGNAL ;
+    - n7 ( i4 Y ) ( i5 A ) + USE SIGNAL ;
+    - n8 ( i5 Y ) ( i6 A ) + USE SIGNAL ;
+    - n9 ( i6 Y ) ( i7 A ) + USE SIGNAL ;
+END NETS
+END DESIGN

@@ -45,6 +45,13 @@ detailed_placement_cmd(int max_displacment_x,
 }
 
 void
+set_precise_pg_cmd(bool enable)
+{
+  dpl::Opendp *opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->setPrecisePg(enable);
+}
+
+void
 report_legalization_stats()
 {
   dpl::Opendp *opendp = ord::OpenRoad::openRoad()->getOpendp();

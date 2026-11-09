@@ -1,4 +1,6 @@
 #pragma once
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <set>
 #include <string>
@@ -7,10 +9,12 @@
 
 #include "dpl/Opendp.h"
 #include "infrastructure/Coordinates.h"
+#include "odb/geom.h"
 #include "utl/Logger.h"
 
 namespace odb {
 class dbBlock;
+class dbMaster;
 class dbTech;
 class dbOrientType;
 }  // namespace odb
@@ -62,6 +66,17 @@ class PlacementDRC
                             GridX x,
                             GridY y,
                             const odb::dbOrientType& orient) const;
+
+
+  // Precise power-grid mode (opt-in, detailed_placement -precise_pg or
+  // DPL_PRECISE_PG=1). The pixel mask stays as a conservative pre-filter;
+  // when it reports a possible conflict, legality is decided from the
+  // instance's pin and obstruction rectangles on each blocked layer against
+  // the special-wire rectangles on that layer bloated by the layer's minimum
+  // spacing. initPrecisePg() must be called after the grid is built.
+  void initPrecisePg(odb::dbBlock* block);
+  void clearPrecisePg();
+  bool isPrecisePg() const { return precise_pg_; }
   // Check shared padding spacing conflicts
   bool checkPadding(const Node* cell) const;
   bool checkPadding(const Node* cell, GridX x, GridY y) const;
@@ -102,6 +117,39 @@ class PlacementDRC
                             // pairs [from_idx][to_idx]
   bool disallow_one_site_gap_{false};
   std::unique_ptr<FixedSupplyVias> fixed_supply_vias_;
+
+  // Precise power-grid mode state.
+  static constexpr int kMaxPgLevel = 8;  // routing levels kept in a uint8_t
+  struct PgLayer
+  {
+    std::string name;
+    int spacing = 0;  // LEF minimum spacing (DBU)
+    int max_dx = 0;   // widest bloated rect, for the x range query
+    std::vector<odb::Rect> rects;  // bloated by spacing, sorted by xMin
+  };
+  struct MasterPgShapes
+  {
+    odb::Rect boundary;  // placement boundary in master coordinates
+    uint8_t mask = 0;    // levels with shapes
+    std::array<std::vector<odb::Rect>, kMaxPgLevel> rects;  // pins + OBS
+  };
+  bool precise_pg_{false};
+  uint8_t pg_mask_{0};  // levels that carry blocking special wires
+  int pg_margin_sites_{0};
+  std::array<PgLayer, kMaxPgLevel> pg_layers_;
+  std::unordered_map<const odb::dbMaster*, MasterPgShapes> pg_masters_;
+  size_t pg_last_logged_count_{0};
+
+  bool checkBlockedLayersPixels(const Node* cell,
+                                GridX x,
+                                GridY y,
+                                const odb::dbOrientType& orient,
+                                bool check_wire_mask) const;
+  bool checkBlockedLayersPrecise(const Node* cell,
+                                 GridX x,
+                                 GridY y,
+                                 const odb::dbOrientType& orient) const;
+  void addMasterPgShapes(odb::dbMaster* master);
 
   // Helper functions
   DbuX gridToDbu(GridX grid_x, DbuX site_width) const;

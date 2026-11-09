@@ -957,6 +957,22 @@ bool PlacementDRC::checkBlockedLayers(const Node* cell,
                                       const GridY y,
                                       const odb::dbOrientType& orient) const
 {
+  if (precise_pg_) {
+    // The pixel mask of vertical special wires is replaced by the exact
+    // geometric check; the pin-layer via/patch metal check still applies.
+    return checkBlockedLayersPixels(cell, x, y, orient, false)
+           && checkBlockedLayersPrecise(cell, x, y, orient);
+  }
+  return checkBlockedLayersPixels(cell, x, y, orient, true);
+}
+
+bool PlacementDRC::checkBlockedLayersPixels(
+    const Node* cell,
+    const GridX x,
+    const GridY y,
+    const odb::dbOrientType& orient,
+    const bool check_wire_mask) const
+{
   const GridX x_begin = x;
   const GridY y_begin = y;
   const GridX x_end = x + grid_->gridWidth(cell);
@@ -969,7 +985,7 @@ bool PlacementDRC::checkBlockedLayers(const Node* cell,
       if (pixel == nullptr) {
         continue;
       }
-      if (pixel->blocked_layers & cell->getUsedLayers()) {
+      if (check_wire_mask && (pixel->blocked_layers & cell->getUsedLayers())) {
         return false;
       }
       pin_layers |= pixel->blocked_pin_layers & cell->getPinLayers();
@@ -1016,6 +1032,280 @@ bool PlacementDRC::checkFixedSupplyVias(const Node* cell,
 {
   return fixed_supply_vias_ == nullptr
          || fixed_supply_vias_->check(cell, x, y, orient);
+}
+
+////////////////////////////////////////////////////////////////
+// Precise power-grid mode
+
+namespace {
+// Same selection of special-wire shapes as Grid::markBlocked(): the shapes
+// that mark pixels as blocked are exactly the shapes checked precisely.
+bool isBlockingSpecialWire(odb::dbSBox* sbox, int& level)
+{
+  if (sbox->isVia()) {
+    return false;
+  }
+  if (sbox->getWireShapeType() == odb::dbWireShapeType::DRCFILL) {
+    return false;
+  }
+  odb::dbTechLayer* layer = sbox->getTechLayer();
+  if (layer == nullptr
+      || layer->getType() != odb::dbTechLayerType::Value::ROUTING) {
+    return false;
+  }
+  level = layer->getRoutingLevel();
+  if (level <= 1 || level > 3) {
+    return false;
+  }
+  if (sbox->getBox().getDir() == odb::horizontal) {
+    return false;
+  }
+  return true;
+}
+
+// Orientation the cell will have at a candidate location: the row's
+// orientation (dpl assigns it in placeCell), keeping a mirror about the
+// y axis (FN/S) that the caller's orientation carries.
+odb::dbOrientType candidateOrient(const odb::dbOrientType& given,
+                                  const std::optional<odb::dbOrientType>& row)
+{
+  if (!row.has_value()) {
+    return given;
+  }
+  const bool mirror_y = given == odb::dbOrientType::MY
+                        || given == odb::dbOrientType::R180;
+  switch (row->getValue()) {
+    case odb::dbOrientType::R0:
+      return mirror_y ? odb::dbOrientType::MY : odb::dbOrientType::R0;
+    case odb::dbOrientType::MX:
+      return mirror_y ? odb::dbOrientType::R180 : odb::dbOrientType::MX;
+    default:
+      return row.value();
+  }
+}
+}  // namespace
+
+void PlacementDRC::clearPrecisePg()
+{
+  precise_pg_ = false;
+  pg_mask_ = 0;
+  pg_margin_sites_ = 0;
+  for (auto& layer : pg_layers_) {
+    layer = PgLayer();
+  }
+  pg_masters_.clear();
+}
+
+void PlacementDRC::addMasterPgShapes(odb::dbMaster* master)
+{
+  if (pg_masters_.contains(master)) {
+    return;
+  }
+  MasterPgShapes& shapes = pg_masters_[master];
+  master->getPlacementBoundary(shapes.boundary);
+  auto add = [&](odb::dbTechLayer* layer, const odb::Rect& rect) {
+    if (layer == nullptr
+        || layer->getType() != odb::dbTechLayerType::Value::ROUTING) {
+      return;
+    }
+    const int level = layer->getRoutingLevel();
+    if (level < 0 || level >= kMaxPgLevel || !(pg_mask_ & (1 << level))) {
+      return;
+    }
+    shapes.rects[level].push_back(rect);
+    shapes.mask |= 1 << level;
+  };
+  auto add_box = [&](odb::dbBox* box) {
+    if (box->isVia()) {
+      std::vector<odb::dbShape> via_shapes;
+      box->getViaBoxes(via_shapes);
+      for (const odb::dbShape& shape : via_shapes) {
+        add(shape.getTechLayer(), shape.getBox());
+      }
+      return;
+    }
+    add(box->getTechLayer(), box->getBox());
+  };
+  for (odb::dbMTerm* mterm : master->getMTerms()) {
+    for (odb::dbMPin* mpin : mterm->getMPins()) {
+      for (odb::dbBox* box : mpin->getGeometry()) {
+        add_box(box);
+      }
+    }
+  }
+  for (odb::dbBox* box : master->getObstructions()) {
+    add_box(box);
+  }
+}
+
+void PlacementDRC::initPrecisePg(odb::dbBlock* block)
+{
+  clearPrecisePg();
+  precise_pg_ = true;
+  for (odb::dbNet* net : block->getNets()) {
+    if (!net->isSpecial()) {
+      continue;
+    }
+    for (odb::dbSWire* swire : net->getSWires()) {
+      for (odb::dbSBox* sbox : swire->getWires()) {
+        int level = 0;
+        if (!isBlockingSpecialWire(sbox, level)) {
+          continue;
+        }
+        PgLayer& layer = pg_layers_[level];
+        if (!(pg_mask_ & (1 << level))) {
+          odb::dbTechLayer* tech_layer = sbox->getTechLayer();
+          pg_mask_ |= 1 << level;
+          layer.name = tech_layer->getName();
+          layer.spacing = std::max(0, tech_layer->getSpacing());
+        }
+        const odb::Rect box = sbox->getBox();
+        layer.rects.emplace_back(box.xMin() - layer.spacing,
+                                 box.yMin() - layer.spacing,
+                                 box.xMax() + layer.spacing,
+                                 box.yMax() + layer.spacing);
+      }
+    }
+  }
+  const int site_width = grid_->getSiteWidth().v;
+  size_t count = 0;
+  for (PgLayer& layer : pg_layers_) {
+    std::ranges::sort(layer.rects, [](const odb::Rect& a, const odb::Rect& b) {
+      return a.xMin() < b.xMin();
+    });
+    for (const odb::Rect& rect : layer.rects) {
+      layer.max_dx = std::max(layer.max_dx, rect.dx());
+    }
+    count += layer.rects.size();
+    if (site_width > 0) {
+      pg_margin_sites_ = std::max(
+          pg_margin_sites_, (layer.spacing + site_width - 1) / site_width + 1);
+    }
+  }
+  if (pg_mask_ != 0) {
+    for (odb::dbInst* inst : block->getInsts()) {
+      addMasterPgShapes(inst->getMaster());
+    }
+  }
+  if (count != pg_last_logged_count_) {
+    std::string layers;
+    for (const PgLayer& layer : pg_layers_) {
+      if (!layer.rects.empty()) {
+        layers += fmt::format(" {} ({} shapes, spacing {})",
+                              layer.name,
+                              layer.rects.size(),
+                              layer.spacing);
+      }
+    }
+    logger_->info(DPL,
+                  1310,
+                  "Precise power-grid check: {} special-wire shapes,"
+                  " {} masters.{}",
+                  count,
+                  pg_masters_.size(),
+                  layers);
+    pg_last_logged_count_ = count;
+  }
+}
+
+bool PlacementDRC::checkBlockedLayersPrecise(
+    const Node* cell,
+    const GridX x,
+    const GridY y,
+    const odb::dbOrientType& orient) const
+{
+  odb::dbInst* inst = cell->getDbInst();
+  if (inst == nullptr) {
+    return checkBlockedLayersPixels(cell, x, y, orient, true);
+  }
+  odb::dbMaster* master = inst->getMaster();
+  auto it = pg_masters_.find(master);
+  if (it == pg_masters_.end()) {
+    // Not indexed (should not happen); stay conservative.
+    return checkBlockedLayersPixels(cell, x, y, orient, true);
+  }
+  const MasterPgShapes& shapes = it->second;
+  const uint8_t mask = shapes.mask & pg_mask_;
+  if (mask == 0) {
+    return true;
+  }
+
+  // Pixel pre-filter, widened by the spacing margin: no blocked pixel of a
+  // layer the master has shapes on near the cell => legal.
+  {
+    const GridX x_begin{x.v - pg_margin_sites_};
+    const GridX x_end{x.v + grid_->gridWidth(cell).v + pg_margin_sites_};
+    const GridY y_end
+        = grid_->gridEndY(grid_->gridYToDbu(y) + cell->getHeight());
+    bool maybe_blocked = false;
+    for (GridY y1 = y; y1 < y_end && !maybe_blocked; y1++) {
+      for (GridX x1 = x_begin; x1 < x_end; x1++) {
+        const Pixel* pixel = grid_->gridPixel(x1, y1);
+        if (pixel != nullptr && (pixel->blocked_layers & mask)) {
+          maybe_blocked = true;
+          break;
+        }
+      }
+    }
+    if (!maybe_blocked) {
+      return true;
+    }
+  }
+
+  // Exact geometry.
+  const odb::Rect core = grid_->getCore();
+  const int cell_x = core.xMin() + gridToDbu(x, grid_->getSiteWidth()).v;
+  const int cell_y = core.yMin() + grid_->gridYToDbu(y).v;
+  odb::dbSite* site = master->getSite();
+  std::optional<odb::dbOrientType> row_orient;
+  if (site != nullptr && y.v >= 0 && y.v < grid_->getRowCount().v) {
+    row_orient = grid_->getSiteOrientation(x, y, site);
+  }
+  const odb::dbOrientType cand_orient = candidateOrient(orient, row_orient);
+  odb::dbTransform transform(cand_orient);
+  odb::Rect bbox = shapes.boundary;
+  transform.apply(bbox);
+  transform.setOffset(
+      odb::Point(cell_x - bbox.xMin(), cell_y - bbox.yMin()));
+  odb::Rect cell_box = shapes.boundary;
+  transform.apply(cell_box);
+
+  std::vector<odb::Rect> placed;
+  for (int level = 0; level < kMaxPgLevel; level++) {
+    if (!(mask & (1 << level))) {
+      continue;
+    }
+    const PgLayer& layer = pg_layers_[level];
+    const auto& stripes = layer.rects;
+    auto first = std::ranges::lower_bound(
+        stripes, cell_box.xMin() - layer.max_dx, {}, [](const odb::Rect& r) {
+          return r.xMin();
+        });
+    placed.clear();
+    for (auto s = first; s != stripes.end() && s->xMin() < cell_box.xMax();
+         ++s) {
+      if (s->xMax() <= cell_box.xMin() || s->yMax() <= cell_box.yMin()
+          || s->yMin() >= cell_box.yMax()) {
+        continue;
+      }
+      if (placed.empty()) {
+        for (const odb::Rect& r : shapes.rects[level]) {
+          odb::Rect t = r;
+          transform.apply(t);
+          placed.push_back(t);
+        }
+      }
+      for (const odb::Rect& r : placed) {
+        // Strict overlap with the bloated wire: touching = exactly the
+        // minimum spacing, which is legal.
+        if (r.xMin() < s->xMax() && r.xMax() > s->xMin()
+            && r.yMin() < s->yMax() && r.yMax() > s->yMin()) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
 }
 
 bool PlacementDRC::checkDRC(const Node* cell) const

@@ -101,6 +101,10 @@ COMPULSORY_TESTS = [
     "edge_spacing-opt",
     "regions1-opt",
     "regions2-opt",
+    "precise_pg1",
+    "precise_pg2",
+    "precise_pg3",
+    "precise_pg4",
 ]
 
 PASSFAIL_TESTS = [
@@ -152,6 +156,22 @@ filegroup(
                 "block2.lef",
                 "sky130hd/sky130hd.tlef",
                 "sky130hd/sky130hd_std_cell.lef",
+            ],
+            "precise_pg1": [
+                "precise_pg.lef",
+                "precise_pg_place.def",
+            ],
+            "precise_pg2": [
+                "precise_pg.lef",
+                "precise_pg_place.def",
+            ],
+            "precise_pg3": [
+                "precise_pg.lef",
+                "precise_pg_place.def",
+            ],
+            "precise_pg4": [
+                "precise_pg.lef",
+                "precise_pg_check.def",
             ],
             "check1": [
                 "simple01.def",

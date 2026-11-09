@@ -150,6 +150,10 @@ class Opendp
                       const std::string& report_file_name = "",
                       bool check_fixed = true,
                       bool check_placeable = true);
+  // Precise power-grid-aware blocked-layer check (sticky once enabled; the
+  // environment variable DPL_PRECISE_PG=1 also enables it).
+  void setPrecisePg(bool enable) { precise_pg_ = enable; }
+  bool isPrecisePg() const;
   void fillerPlacement(const dbMasterSeq& filler_masters,
                        const char* prefix,
                        bool verbose);
@@ -448,6 +452,7 @@ class Opendp
   int negotiation_converge_phase_ = 0;
   int negotiation_diamond_recoveries_ = 0;
   std::string negotiation_finish_ = "not run";
+  bool precise_pg_ = false;
 
   // Magic numbers
   static constexpr double group_refine_percent_ = .05;

@@ -12,14 +12,15 @@ sta::define_cmd_args "detailed_placement" { \
                            [-row_search_window rows] \
                            [-drc_penalty penalty] \
                            [-disable_window_extension] \
-                           [-quiet]}
+                           [-quiet] \
+                           [-precise_pg]}
 
 proc detailed_placement { args } {
   sta::parse_key_args "detailed_placement" args \
     keys {-max_displacement -report_file_name \
           -site_search_window -row_search_window -drc_penalty} \
     flags {-disallow_one_site_gaps -incremental -use_diamond_legalizer -pdn_aware \
-           -disable_window_extension -quiet}
+           -disable_window_extension -quiet -precise_pg}
 
   if { [info exists keys(-max_displacement)] } {
     set max_displacement $keys(-max_displacement)
@@ -68,6 +69,10 @@ proc detailed_placement { args } {
   if { [info exists keys(-drc_penalty)] } {
     set drc_penalty $keys(-drc_penalty)
     sta::check_positive_float "-drc_penalty" $drc_penalty
+  }
+
+  if { [info exists flags(-precise_pg)] } {
+    dpl::set_precise_pg_cmd 1
   }
 
   if { [ord::db_has_core_rows] } {
@@ -165,7 +170,8 @@ sta::define_cmd_args "check_placement" {[-verbose] \
                                         [-disallow_one_site_gaps] \
                                         [-fixed] \
                                         [-placeable] \
-                                        [-report_file_name file_name]}
+                                        [-report_file_name file_name] \
+                                        [-precise_pg]}
 
 proc check_placement { args } {
   if { [ord::get_db_block] == "NULL" } {
@@ -173,7 +179,7 @@ proc check_placement { args } {
   }
 
   sta::parse_key_args "check_placement" args \
-    keys {-report_file_name} flags {-verbose -disallow_one_site_gaps -fixed -placeable}
+    keys {-report_file_name} flags {-verbose -disallow_one_site_gaps -fixed -placeable -precise_pg}
   set verbose [info exists flags(-verbose)]
   set check_fixed [info exists flags(-fixed)]
   set check_placeable [info exists flags(-placeable)]
@@ -189,6 +195,9 @@ proc check_placement { args } {
   }
   if { [info exists flags(-disallow_one_site_gaps)] } {
     utl::warn DPL 4 "-disallow_one_site_gaps is deprecated"
+  }
+  if { [info exists flags(-precise_pg)] } {
+    dpl::set_precise_pg_cmd 1
   }
   dpl::check_placement_cmd $verbose $file_name $check_fixed $check_placeable
 }

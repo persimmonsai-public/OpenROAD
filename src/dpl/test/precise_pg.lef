@@ -1,0 +1,158 @@
+# Invented technology for the precise power-grid (-precise_pg) tests.
+VERSION 5.8 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+
+UNITS
+  DATABASE MICRONS 1000 ;
+END UNITS
+
+MANUFACTURINGGRID 0.001 ;
+
+SITE pgcore
+  CLASS CORE ;
+  SYMMETRY Y ;
+  SIZE 0.100 BY 1.000 ;
+END pgcore
+
+LAYER M1
+  TYPE ROUTING ;
+  DIRECTION HORIZONTAL ;
+  PITCH 0.100 ;
+  WIDTH 0.030 ;
+  SPACING 0.020 ;
+END M1
+
+LAYER V1
+  TYPE CUT ;
+END V1
+
+LAYER M2
+  TYPE ROUTING ;
+  DIRECTION VERTICAL ;
+  PITCH 0.050 ;
+  WIDTH 0.020 ;
+  SPACING 0.020 ;
+END M2
+
+LAYER V2
+  TYPE CUT ;
+END V2
+
+LAYER M3
+  TYPE ROUTING ;
+  DIRECTION HORIZONTAL ;
+  PITCH 0.100 ;
+  WIDTH 0.030 ;
+  SPACING 0.030 ;
+END M3
+
+# Small cell with M1 pins only.
+MACRO PGINV
+  CLASS CORE ;
+  ORIGIN 0 0 ;
+  SIZE 0.300 BY 1.000 ;
+  SYMMETRY X Y ;
+  SITE pgcore ;
+  PIN A
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M1 ;
+        RECT 0.050 0.400 0.250 0.450 ;
+    END
+  END A
+  PIN Y
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M1 ;
+        RECT 0.050 0.600 0.250 0.650 ;
+    END
+  END Y
+  PIN VDD
+    DIRECTION INOUT ;
+    USE POWER ;
+    PORT
+      LAYER M1 ;
+        RECT 0.000 0.970 0.300 1.030 ;
+    END
+  END VDD
+  PIN VSS
+    DIRECTION INOUT ;
+    USE GROUND ;
+    PORT
+      LAYER M1 ;
+        RECT 0.000 -0.030 0.300 0.030 ;
+    END
+  END VSS
+END PGINV
+
+# Wide cell with an M2 obstruction comb (bars every 0.05) that leaves one
+# channel (x 0.520 .. 0.650) where a 0.02 wide M2 wire fits with the
+# 0.02 spacing on both sides. The channel is off-centre, so a mirrored
+# (FN) cell has its channel elsewhere.
+MACRO PGCOMB
+  CLASS CORE ;
+  ORIGIN 0 0 ;
+  SIZE 1.200 BY 1.000 ;
+  SYMMETRY X Y ;
+  SITE pgcore ;
+  PIN A
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M1 ;
+        RECT 0.050 0.400 0.350 0.450 ;
+    END
+  END A
+  PIN Y
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M1 ;
+        RECT 0.850 0.600 1.150 0.650 ;
+    END
+  END Y
+  PIN VDD
+    DIRECTION INOUT ;
+    USE POWER ;
+    PORT
+      LAYER M1 ;
+        RECT 0.000 0.970 1.200 1.030 ;
+    END
+  END VDD
+  PIN VSS
+    DIRECTION INOUT ;
+    USE GROUND ;
+    PORT
+      LAYER M1 ;
+        RECT 0.000 -0.030 1.200 0.030 ;
+    END
+  END VSS
+  OBS
+    LAYER M2 ;
+      RECT 0.050 0.100 0.070 0.900 ;
+      RECT 0.100 0.100 0.120 0.900 ;
+      RECT 0.150 0.100 0.170 0.900 ;
+      RECT 0.200 0.100 0.220 0.900 ;
+      RECT 0.250 0.100 0.270 0.900 ;
+      RECT 0.300 0.100 0.320 0.900 ;
+      RECT 0.350 0.100 0.370 0.900 ;
+      RECT 0.400 0.100 0.420 0.900 ;
+      RECT 0.450 0.100 0.470 0.900 ;
+      RECT 0.500 0.100 0.520 0.900 ;
+      RECT 0.650 0.100 0.670 0.900 ;
+      RECT 0.700 0.100 0.720 0.900 ;
+      RECT 0.750 0.100 0.770 0.900 ;
+      RECT 0.800 0.100 0.820 0.900 ;
+      RECT 0.850 0.100 0.870 0.900 ;
+      RECT 0.900 0.100 0.920 0.900 ;
+      RECT 0.950 0.100 0.970 0.900 ;
+      RECT 1.000 0.100 1.020 0.900 ;
+      RECT 1.050 0.100 1.070 0.900 ;
+      RECT 1.100 0.100 1.120 0.900 ;
+  END
+END PGCOMB
+
+END LIBRARY

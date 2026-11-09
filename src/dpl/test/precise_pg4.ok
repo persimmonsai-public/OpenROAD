@@ -1,0 +1,18 @@
+[INFO ODB-0227] LEF file: precise_pg.lef, created 5 layers, 2 library cells
+[INFO ODB-0128] Design: precise_pg_check
+[INFO ODB-0131]     Created 4 components and 16 component-terminals.
+[INFO ODB-0132]     Created 1 special nets and 4 connections.
+[INFO ODB-0133]     Created 3 nets and 6 connections.
+[WARNING DPL-0010] Blocked layers check failed (4).
+ bad_comb
+ fn_comb
+ ok_comb
+ ok_inv
+[ERROR DPL-0033] detailed placement checks failed during check placement.
+DPL-0033
+[INFO DPL-1310] Precise power-grid check: 9 special-wire shapes, 2 masters. M2 (9 shapes, spacing 20)
+[WARNING DPL-0010] Blocked layers check failed (2).
+ bad_comb
+ fn_comb
+[ERROR DPL-0033] detailed placement checks failed during check placement.
+DPL-0033
