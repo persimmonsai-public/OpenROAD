@@ -14,6 +14,7 @@
 #include <set>
 #include <stack>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -383,9 +384,11 @@ float LatencyBalancer::computeAveSinkArrivals(TreeBuilder* builder)
   // compute average input arrival at all sinks
   float sumArrivals = 0.0;
   unsigned numSinks = 0;
+  std::unordered_set<odb::dbNet*> visited_nets;
   clock.forEachSink([&](const ClockInst& sink) {
     odb::dbITerm* iterm = sink.getDbInputPin();
-    computeSinkArrivalRecur(topInputClockNet, iterm, sumArrivals, numSinks);
+    computeSinkArrivalRecur(
+        topInputClockNet, iterm, sumArrivals, numSinks, visited_nets);
   });
   float aveArrival = 0.0;
   if (numSinks) {
@@ -408,7 +411,9 @@ float LatencyBalancer::computeAveSinkArrivals(TreeBuilder* builder)
 void LatencyBalancer::computeSinkArrivalRecur(odb::dbNet* topClokcNet,
                                               odb::dbITerm* iterm,
                                               float& sumArrivals,
-                                              unsigned& numSinks)
+                                              unsigned& numSinks,
+                                              std::unordered_set<odb::dbNet*>&
+                                                  visited_nets)
 {
   if (iterm) {
     odb::dbInst* inst = iterm->getInst();
@@ -451,13 +456,18 @@ void LatencyBalancer::computeSinkArrivalRecur(odb::dbNet* topClokcNet,
           odb::dbNet* outNet = outTerm->getNet();
           bool propagate = propagateClock(iterm);
           if (outNet && propagate) {
+            // Reconvergent clock networks reach a net more than once: do not
+            // revisit it (infinite recursion) or count its sinks twice.
+            if (!visited_nets.insert(outNet).second) {
+              return;
+            }
             odb::dbSet<odb::dbITerm> iterms = outNet->getITerms();
             odb::dbSet<odb::dbITerm>::iterator iter;
             for (iter = iterms.begin(); iter != iterms.end(); ++iter) {
               odb::dbITerm* inTerm = *iter;
               if (inTerm->getIoType() == odb::dbIoType::INPUT) {
                 computeSinkArrivalRecur(
-                    topClokcNet, inTerm, sumArrivals, numSinks);
+                    topClokcNet, inTerm, sumArrivals, numSinks, visited_nets);
               }
             }
           }

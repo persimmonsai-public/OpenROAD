@@ -9,6 +9,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -106,7 +107,8 @@ class LatencyBalancer
   void computeSinkArrivalRecur(odb::dbNet* topClokcNet,
                                odb::dbITerm* iterm,
                                float& sumArrivals,
-                               unsigned& numSinks);
+                               unsigned& numSinks,
+                               std::unordered_set<odb::dbNet*>& visited_nets);
 
   static int backtrackCount(const std::vector<int>& dp_elements,
                             const std::vector<int64_t>& bufDelays,
