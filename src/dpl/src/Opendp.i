@@ -52,6 +52,20 @@ set_precise_pg_cmd(bool enable)
 }
 
 void
+set_extended_recovery_cmd(bool enable)
+{
+  dpl::Opendp *opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->setExtendedRecovery(enable);
+}
+
+void
+set_match_sites_by_geometry_cmd(bool enable)
+{
+  dpl::Opendp *opendp = ord::OpenRoad::openRoad()->getOpendp();
+  opendp->setMatchSitesByGeometry(enable);
+}
+
+void
 report_legalization_stats()
 {
   dpl::Opendp *opendp = ord::OpenRoad::openRoad()->getOpendp();

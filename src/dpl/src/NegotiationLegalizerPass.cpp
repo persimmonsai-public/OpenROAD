@@ -1169,6 +1169,10 @@ void NegotiationLegalizer::diamondRecovery(const std::vector<int>& activeCells)
   if (!opendp_ || !network_) {
     return;
   }
+  if (opendp_->isExtendedRecovery()) {
+    diamondRecoveryClustered(activeCells);
+    return;
+  }
   ++diamond_recoveries_;
   int recovered = 0;
   for (int idx : activeCells) {
@@ -1205,6 +1209,351 @@ void NegotiationLegalizer::diamondRecovery(const std::vector<int>& activeCells)
   logger_->report("diamond recovery: recovered {}/{} stuck cells.",
                   recovered,
                   activeCells.size());
+}
+
+// ===========================================================================
+// Extended recovery (opt-in, see Opendp::isExtendedRecovery)
+// ===========================================================================
+
+// rebalanceOverflowRows – pre-negotiation pass that detects rows whose total
+// cell width exceeds the available site capacity and shifts the excess to the
+// nearest row with room, so the negotiation loop (which has a bounded search
+// window) does not have to absorb the whole imbalance.
+void NegotiationLegalizer::rebalanceOverflowRows()
+{
+  std::vector<int> row_cap(grid_h_, 0);
+  std::vector<int> row_use(grid_h_, 0);
+  for (int gy = 0; gy < grid_h_; ++gy) {
+    for (int gx = 0; gx < grid_w_; ++gx) {
+      if (gridAt(gx, gy).capacity > 0) {
+        ++row_cap[gy];
+      }
+    }
+  }
+
+  // Bin movable single-height cells by row.
+  std::vector<std::vector<int>> row_cells(grid_h_);
+  for (int i = 0; i < static_cast<int>(cells_.size()); ++i) {
+    const NegCell& c = cells_[i];
+    if (c.fixed || c.height != 1) {
+      continue;
+    }
+    if (c.y >= 0 && c.y < grid_h_) {
+      row_cells[c.y].push_back(i);
+      row_use[c.y] += c.width;
+    }
+  }
+
+  int cells_moved = 0;
+  for (int gy = 0; gy < grid_h_; ++gy) {
+    if (row_use[gy] <= row_cap[gy]) {
+      continue;
+    }
+    // Move the cells farthest from the row center first: they are closest to
+    // the row ends.
+    const int row_center = grid_w_ / 2;
+    std::ranges::sort(row_cells[gy], [&](int a, int b) {
+      return std::abs(cells_[a].x - row_center)
+             > std::abs(cells_[b].x - row_center);
+    });
+
+    while (row_use[gy] > row_cap[gy] && !row_cells[gy].empty()) {
+      const int victim = row_cells[gy].back();
+      row_cells[gy].pop_back();
+      const NegCell& vc = cells_[victim];
+
+      // Nearest row with enough free capacity that accepts the cell.
+      int best_row = -1;
+      for (int dy = 1; dy < grid_h_ && best_row < 0; ++dy) {
+        for (const int sign : {-1, 1}) {
+          const int target = gy + sign * dy;
+          if (target < 0 || target >= grid_h_ || !row_has_sites_[target]) {
+            continue;
+          }
+          if (row_cap[target] - row_use[target] >= vc.width
+              && isValidRow(target, vc, vc.x)) {
+            best_row = target;
+            break;
+          }
+        }
+      }
+
+      if (best_row >= 0) {
+        addUsage(victim, -1);
+        row_use[gy] -= vc.width;
+        cells_[victim].y = best_row;
+        addUsage(victim, 1);
+        row_use[best_row] += vc.width;
+        row_cells[best_row].push_back(victim);
+        ++cells_moved;
+      }
+    }
+  }
+
+  if (cells_moved > 0) {
+    syncAllCellsToDplGrid();
+    for (int i = 0; i < static_cast<int>(cells_.size()); ++i) {
+      if (!cells_[i].fixed) {
+        cells_[i].legal = isCellLegal(i);
+      }
+    }
+    debugPrint(logger_,
+               utl::DPL,
+               "negotiation",
+               1,
+               "rebalanceOverflowRows: moved {} cells to reduce row overflow.",
+               cells_moved);
+  }
+}
+
+// diamondRecoveryClustered – cluster-aware variant of diamondRecovery.
+// Phase 1 rips up spatially clustered stuck cells together and re-places them
+// largest first; phase 2 retries the remainder with the displacement limits
+// widened to the whole grid; phase 3 swaps a stuck cell with an equal-
+// footprint legal neighbour.
+void NegotiationLegalizer::diamondRecoveryClustered(
+    const std::vector<int>& activeCells)
+{
+  if (!opendp_ || !network_) {
+    return;
+  }
+  ++diamond_recoveries_;
+
+  std::vector<int> stuck;
+  for (const int idx : activeCells) {
+    if (!cells_[idx].fixed && !isCellLegal(idx)) {
+      stuck.push_back(idx);
+    }
+  }
+  if (stuck.empty()) {
+    return;
+  }
+  // Larger cells are harder to place: they get first pick of the space.
+  std::ranges::sort(stuck, [this](int a, int b) {
+    return cells_[a].width > cells_[b].width;
+  });
+
+  int recovered = 0;
+
+  // Phase 1: rip up and re-place clusters of stuck cells.
+  constexpr int kClusterRadius = 10;  // sites
+  std::vector<bool> processed(cells_.size(), false);
+  for (const int seed : stuck) {
+    if (processed[seed]) {
+      continue;
+    }
+    std::vector<int> cluster;
+    const NegCell& sc = cells_[seed];
+    for (const int idx : stuck) {
+      if (processed[idx]) {
+        continue;
+      }
+      const NegCell& c = cells_[idx];
+      if (std::abs(c.x - sc.x) <= kClusterRadius
+          && std::abs(c.y - sc.y) <= kClusterRadius) {
+        cluster.push_back(idx);
+      }
+    }
+    for (const int idx : cluster) {
+      ripUp(idx);
+    }
+    std::ranges::sort(cluster, [this](int a, int b) {
+      return cells_[a].width > cells_[b].width;
+    });
+    for (const int idx : cluster) {
+      processed[idx] = true;
+      Node* node = network_->getNode(cells_[idx].db_inst);
+      if (node == nullptr) {
+        place(idx, cells_[idx].x, cells_[idx].y);
+        continue;
+      }
+      const PixelPt pt = opendp_->diamondSearch(
+          node, GridX{cells_[idx].x}, GridY{cells_[idx].y});
+      if (pt.pixel) {
+        place(idx, pt.x.v, pt.y.v);
+        ++recovered;
+      } else {
+        place(idx, cells_[idx].x, cells_[idx].y);
+      }
+    }
+  }
+
+  // Phase 2: widen the displacement limits to the whole grid.
+  const int saved_dx = opendp_->max_displacement_x_;
+  const int saved_dy = opendp_->max_displacement_y_;
+  opendp_->max_displacement_x_ = grid_w_;
+  opendp_->max_displacement_y_ = grid_h_;
+  for (const int idx : stuck) {
+    if (isCellLegal(idx)) {
+      continue;
+    }
+    Node* node = network_->getNode(cells_[idx].db_inst);
+    if (node == nullptr) {
+      continue;
+    }
+    ripUp(idx);
+    const PixelPt pt = opendp_->diamondSearch(
+        node, GridX{cells_[idx].x}, GridY{cells_[idx].y});
+    if (pt.pixel) {
+      place(idx, pt.x.v, pt.y.v);
+      ++recovered;
+    } else {
+      place(idx, cells_[idx].x, cells_[idx].y);
+    }
+  }
+  opendp_->max_displacement_x_ = saved_dx;
+  opendp_->max_displacement_y_ = saved_dy;
+
+  // Phase 3: swap with a legal neighbour of the same footprint.
+  constexpr int kSwapWindow = 30;  // sites
+  for (const int idx : stuck) {
+    if (isCellLegal(idx)) {
+      continue;
+    }
+    const NegCell& sc = cells_[idx];
+    int best_swap = -1;
+    int best_dist = kSwapWindow * 2;
+    for (int j = 0; j < static_cast<int>(cells_.size()); ++j) {
+      if (j == idx || cells_[j].fixed) {
+        continue;
+      }
+      const NegCell& nb = cells_[j];
+      if (nb.width != sc.width || nb.height != sc.height || !isCellLegal(j)) {
+        continue;
+      }
+      const int dist = std::abs(nb.x - sc.x) + std::abs(nb.y - sc.y);
+      if (dist < best_dist && isValidRow(nb.y, sc, nb.x)
+          && respectsFence(idx, nb.x, nb.y)
+          && inDie(nb.x, nb.y, sc.width, sc.height)
+          && isValidRow(sc.y, nb, sc.x) && respectsFence(j, sc.x, sc.y)
+          && inDie(sc.x, sc.y, nb.width, nb.height)) {
+        best_dist = dist;
+        best_swap = j;
+      }
+    }
+    if (best_swap < 0) {
+      continue;
+    }
+    const int sx = sc.x;
+    const int sy = sc.y;
+    const int nx = cells_[best_swap].x;
+    const int ny = cells_[best_swap].y;
+    ripUp(idx);
+    ripUp(best_swap);
+    place(idx, nx, ny);
+    place(best_swap, sx, sy);
+    if (isCellLegal(idx) && isCellLegal(best_swap)) {
+      ++recovered;
+    } else {
+      ripUp(idx);
+      ripUp(best_swap);
+      place(idx, sx, sy);
+      place(best_swap, nx, ny);
+    }
+  }
+
+  logger_->report(
+      "diamond recovery: recovered {}/{} stuck cells.", recovered, stuck.size());
+}
+
+// drcTolerantRecovery – final pass for cells that are still illegal after
+// negotiation.  Places each at the nearest position with zero grid overuse,
+// accepting DRC violations (one-site gap, blocked layers, edge spacing) that
+// are less harmful than physical overlaps.
+void NegotiationLegalizer::drcTolerantRecovery()
+{
+  std::vector<int> illegal;
+  for (int i = 0; i < static_cast<int>(cells_.size()); ++i) {
+    if (!cells_[i].fixed && !isCellLegal(i)) {
+      illegal.push_back(i);
+    }
+  }
+  if (illegal.empty()) {
+    return;
+  }
+  std::ranges::sort(illegal, [this](int a, int b) {
+    return cells_[a].width > cells_[b].width;
+  });
+
+  int recovered = 0;
+  int no_valid_row = 0;
+  int all_overused = 0;
+  for (const int idx : illegal) {
+    if (isCellLegal(idx)) {
+      continue;  // fixed by an earlier move
+    }
+    const NegCell& cell = cells_[idx];
+    ripUp(idx);
+
+    int best_x = cell.x;
+    int best_y = cell.y;
+    double best_cost = static_cast<double>(kInfCost);
+    bool any_valid_row = false;
+
+    auto try_pos = [&](int tx, int ty) {
+      if (!inDie(tx, ty, cell.width, cell.height)
+          || !isValidRow(ty, cell, tx)) {
+        return;
+      }
+      any_valid_row = true;
+      if (!respectsFence(idx, tx, ty)) {
+        return;
+      }
+      int total_overuse = 0;
+      for (int dy = 0; dy < cell.height; ++dy) {
+        for (int gx = tx; gx < tx + cell.width; ++gx) {
+          if (!gridExists(gx, ty + dy) || gridAt(gx, ty + dy).capacity == 0) {
+            total_overuse += kInfCost;
+          } else {
+            total_overuse += gridAt(gx, ty + dy).overuse();
+          }
+        }
+      }
+      // Displacement plus an overuse penalty; no DRC penalty.
+      const double cost = std::abs(tx - cell.init_x)
+                          + std::abs(ty - cell.init_y) + 1e6 * total_overuse;
+      if (cost < best_cost) {
+        best_cost = cost;
+        best_x = tx;
+        best_y = ty;
+      }
+    };
+
+    // Expanding ring search over the whole grid.
+    const int max_ring = std::max(grid_w_, grid_h_);
+    bool found = false;
+    for (int r = 0; r <= max_ring && !found; ++r) {
+      for (int dx = -r; dx <= r; ++dx) {
+        try_pos(cell.x + dx, cell.y - r);
+        try_pos(cell.x + dx, cell.y + r);
+      }
+      for (int dy = -r + 1; dy < r; ++dy) {
+        try_pos(cell.x - r, cell.y + dy);
+        try_pos(cell.x + r, cell.y + dy);
+      }
+      found = best_cost < 1e6;
+    }
+
+    place(idx, best_x, best_y);
+    if (found) {
+      ++recovered;
+    } else if (!any_valid_row) {
+      ++no_valid_row;
+    } else {
+      ++all_overused;
+    }
+  }
+
+  syncAllCellsToDplGrid();
+  if (!quiet_) {
+    logger_->report(
+        "drcTolerantRecovery: resolved {}/{} illegal cells (accepting DRC "
+        "violations). Remaining: {} no-valid-row, {} all-overused.",
+        recovered,
+        illegal.size(),
+        no_valid_row,
+        all_overused);
+  }
 }
 
 }  // namespace dpl

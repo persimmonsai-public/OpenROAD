@@ -105,6 +105,10 @@ COMPULSORY_TESTS = [
     "precise_pg2",
     "precise_pg3",
     "precise_pg4",
+    "recovery_rows1",
+    "recovery_rows2",
+    "recovery_sites1",
+    "recovery_sites2",
 ]
 
 PASSFAIL_TESTS = [
@@ -172,6 +176,22 @@ filegroup(
             "precise_pg4": [
                 "precise_pg.lef",
                 "precise_pg_check.def",
+            ],
+            "recovery_rows1": [
+                "precise_pg.lef",
+                "recovery_rows.def",
+            ],
+            "recovery_rows2": [
+                "precise_pg.lef",
+                "recovery_rows.def",
+            ],
+            "recovery_sites1": [
+                "recovery_sites.lef",
+                "recovery_sites.def",
+            ],
+            "recovery_sites2": [
+                "recovery_sites.lef",
+                "recovery_sites.def",
             ],
             "check1": [
                 "simple01.def",

@@ -1,0 +1,49 @@
+[INFO ODB-0227] LEF file: recovery_sites.lef, created 1 layers, 2 library cells
+[INFO ODB-0128] Design: recovery_sites
+[INFO ODB-0131]     Created 4 components and 8 component-terminals.
+[INFO ODB-0133]     Created 3 nets and 6 connections.
+[INFO DPL-0006] Core area: 8.00 um^2
+[INFO DPL-0007] Movable instances area: 1.20 um^2
+[INFO DPL-0008] Fixed instances area within core: 0.00 um^2
+[INFO DPL-0009] Utilization: 15.0%
+[INFO DPL-0005] Diamond search max displacement: +/- 500 sites horizontally, +/- 100 rows vertically.
+[INFO DPL-1102] Legalizing using negotiation legalizer.
+[INFO DPL-1103] Negotiation base search window: +/-20 sites horizontally, +/-5 rows vertically 
+	Automatic search window extension enabled.
+	Search window extendable up to the max displacement cap of +/-500 sites, +/-100 rows near walls.
+[INFO DPL-1104] NegotiationLegalizer DRC penalty: 5.
+[INFO DPL-0392] Negotiation cell height distribution (1 unique row-count(s)):
+[INFO DPL-0393]   height 1 row(s): 4 cells
+          |      Total |  Illegal |  Illegal
+Iteration | Violations |    Cells |    Sites
+---------------------------------------------
+        0 |          2 |         2 |         0
+        1 |          2 |         2 |         0
+        2 |          2 |         2 |         0
+        3 |          2 |         2 |         0
+[WARNING DPL-0700] Negotiation phase 1: violations stuck at 2 for 3 consecutive iterations.
+Using old diamond search for 2 remaining illegal cells.
+diamond recovery: recovered 0/2 stuck cells.
+Negotiation phase 2: isolation point active, 1000 iterations.
+      400 |          2 |         2 |         0
+      403 |          2 |         2 |         0
+[WARNING DPL-0702] Negotiation phase 2: violations stuck at 2 for 3 consecutive iterations. Using diamond search for 2 remaining illegal cells.
+diamond recovery: recovered 0/2 stuck cells.
+[WARNING DPL-0701] NegotiationLegalizer did not fully converge. Violations remain: 2
+Detailed Placement Analysis
+---------------------------------
+legalizer            negotiation
+total moves                  18
+total displacement          0.0 u
+average displacement        0.0 u
+max displacement            0.0 u
+original HPWL               5.0 u
+legalized HPWL              5.0 u
+delta HPWL                    0 %
+
+
+[WARNING DPL-0004] Placed in rows check failed (2).
+ b0
+ b1
+[ERROR DPL-0033] detailed placement checks failed during check placement.
+DPL-0033

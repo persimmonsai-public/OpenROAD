@@ -227,6 +227,10 @@ class NegotiationLegalizer
 
   // Stall recovery
   void diamondRecovery(const std::vector<int>& activeCells);
+  // Opt-in extended recovery (Opendp::isExtendedRecovery)
+  void rebalanceOverflowRows();
+  void diamondRecoveryClustered(const std::vector<int>& activeCells);
+  void drcTolerantRecovery();
 
   // Constraint helpers
   [[nodiscard]] bool isValidRow(int rowIdx,

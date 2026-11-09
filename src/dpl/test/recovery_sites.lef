@@ -1,0 +1,81 @@
+# Invented technology: two sites with identical dimensions and different
+# names, and one cell per site.
+VERSION 5.8 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+
+UNITS
+  DATABASE MICRONS 1000 ;
+END UNITS
+
+MANUFACTURINGGRID 0.001 ;
+
+SITE coresite
+  CLASS CORE ;
+  SYMMETRY Y ;
+  SIZE 0.100 BY 1.000 ;
+END coresite
+
+SITE coresite_alt
+  CLASS CORE ;
+  SYMMETRY Y ;
+  SIZE 0.100 BY 1.000 ;
+END coresite_alt
+
+LAYER M1
+  TYPE ROUTING ;
+  DIRECTION HORIZONTAL ;
+  PITCH 0.100 ;
+  WIDTH 0.030 ;
+  SPACING 0.020 ;
+END M1
+
+MACRO CELL_A
+  CLASS CORE ;
+  ORIGIN 0 0 ;
+  SIZE 0.300 BY 1.000 ;
+  SYMMETRY X Y ;
+  SITE coresite ;
+  PIN A
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M1 ;
+        RECT 0.050 0.400 0.250 0.450 ;
+    END
+  END A
+  PIN Y
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M1 ;
+        RECT 0.050 0.600 0.250 0.650 ;
+    END
+  END Y
+END CELL_A
+
+MACRO CELL_B
+  CLASS CORE ;
+  ORIGIN 0 0 ;
+  SIZE 0.300 BY 1.000 ;
+  SYMMETRY X Y ;
+  SITE coresite_alt ;
+  PIN A
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M1 ;
+        RECT 0.050 0.400 0.250 0.450 ;
+    END
+  END A
+  PIN Y
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M1 ;
+        RECT 0.050 0.600 0.250 0.650 ;
+    END
+  END Y
+END CELL_B
+
+END LIBRARY

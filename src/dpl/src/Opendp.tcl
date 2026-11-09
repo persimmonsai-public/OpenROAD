@@ -13,14 +13,17 @@ sta::define_cmd_args "detailed_placement" { \
                            [-drc_penalty penalty] \
                            [-disable_window_extension] \
                            [-quiet] \
-                           [-precise_pg]}
+                           [-precise_pg] \
+                           [-extended_recovery] \
+                           [-match_sites_by_geometry]}
 
 proc detailed_placement { args } {
   sta::parse_key_args "detailed_placement" args \
     keys {-max_displacement -report_file_name \
           -site_search_window -row_search_window -drc_penalty} \
     flags {-disallow_one_site_gaps -incremental -use_diamond_legalizer -pdn_aware \
-           -disable_window_extension -quiet -precise_pg}
+           -disable_window_extension -quiet -precise_pg \
+           -extended_recovery -match_sites_by_geometry}
 
   if { [info exists keys(-max_displacement)] } {
     set max_displacement $keys(-max_displacement)
@@ -73,6 +76,12 @@ proc detailed_placement { args } {
 
   if { [info exists flags(-precise_pg)] } {
     dpl::set_precise_pg_cmd 1
+  }
+  if { [info exists flags(-extended_recovery)] } {
+    dpl::set_extended_recovery_cmd 1
+  }
+  if { [info exists flags(-match_sites_by_geometry)] } {
+    dpl::set_match_sites_by_geometry_cmd 1
   }
 
   if { [ord::db_has_core_rows] } {

@@ -1,0 +1,20 @@
+VERSION 5.8 ;
+DIVIDERCHAR "/" ;
+BUSBITCHARS "[]" ;
+DESIGN recovery_sites ;
+UNITS DISTANCE MICRONS 1000 ;
+DIEAREA ( 0 0 ) ( 4000 2000 ) ;
+ROW ROW_0 coresite 0 0 N DO 40 BY 1 STEP 100 0 ;
+ROW ROW_1 coresite 0 1000 FS DO 40 BY 1 STEP 100 0 ;
+COMPONENTS 4 ;
+    - a0 CELL_A + PLACED ( 500 0 ) N ;
+    - a1 CELL_A + PLACED ( 1200 1000 ) FS ;
+    - b0 CELL_B + PLACED ( 2000 0 ) N ;
+    - b1 CELL_B + PLACED ( 2700 1000 ) FS ;
+END COMPONENTS
+NETS 3 ;
+    - n0 ( a0 Y ) ( a1 A ) ;
+    - n1 ( a1 Y ) ( b0 A ) ;
+    - n2 ( b0 Y ) ( b1 A ) ;
+END NETS
+END DESIGN

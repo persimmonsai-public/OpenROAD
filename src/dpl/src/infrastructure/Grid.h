@@ -85,6 +85,12 @@ class Grid
  public:
   void init(utl::Logger* logger) { logger_ = logger; }
   void setCore(const odb::Rect& core) { core_ = core; }
+  // When set, getSiteOrientation also matches a site by name and then by
+  // dimensions if the exact site object is not on the row.
+  void setMatchSitesByGeometry(bool enable)
+  {
+    match_sites_by_geometry_ = enable;
+  }
   void initGrid(odb::dbDatabase* db,
                 odb::dbBlock* block,
                 std::shared_ptr<Padding> padding,
@@ -254,6 +260,7 @@ class Grid
 
   bool has_hybrid_rows_ = false;
   odb::Rect core_;
+  bool match_sites_by_geometry_{false};
 
   std::optional<DbuY> uniform_row_height_;  // unset if hybrid
   DbuX site_width_{0};

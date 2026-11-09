@@ -598,6 +598,7 @@ bool Opendp::isPdnAwareForCurrentBlock()
 
 void Opendp::initGrid(const bool check_fixed_supply_vias)
 {
+  grid_->setMatchSitesByGeometry(isMatchSitesByGeometry());
   grid_->initGrid(
       db_, block_, padding_, max_displacement_x_, max_displacement_y_);
   if (check_fixed_supply_vias) {
@@ -620,6 +621,29 @@ bool Opendp::isPrecisePg() const
     return true;
   }
   const char* env = std::getenv("DPL_PRECISE_PG");
+  return env != nullptr && env[0] != '\0' && std::string(env) != "0";
+}
+
+bool Opendp::isExtendedRecovery() const
+{
+  if (extended_recovery_) {
+    return true;
+  }
+  const char* env = std::getenv("DPL_EXTENDED_RECOVERY");
+  return env != nullptr && env[0] != '\0' && std::string(env) != "0";
+}
+
+void Opendp::setMatchSitesByGeometry(bool enable)
+{
+  match_sites_by_geometry_ = enable;
+}
+
+bool Opendp::isMatchSitesByGeometry() const
+{
+  if (match_sites_by_geometry_) {
+    return true;
+  }
+  const char* env = std::getenv("DPL_MATCH_SITES_BY_GEOMETRY");
   return env != nullptr && env[0] != '\0' && std::string(env) != "0";
 }
 

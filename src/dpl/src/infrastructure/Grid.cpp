@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -349,6 +350,25 @@ Grid::getSiteOrientation(GridX x, GridY y, odb::dbSite* site) const
 
   if (auto it = sites_orient.find(site); it != sites_orient.end()) {
     return it->second;
+  }
+
+  if (match_sites_by_geometry_) {
+    // Several LEF files can define the same site, which gives distinct dbSite
+    // objects for identical sites: match by name first.
+    const std::string& name = site->getName();
+    for (const auto& [s, orient] : sites_orient) {
+      if (s->getName() == name) {
+        return orient;
+      }
+    }
+    // Sites with other names but the same dimensions (for example power-gated
+    // variants) are interchangeable for placement.
+    for (const auto& [s, orient] : sites_orient) {
+      if (s->getWidth() == site->getWidth()
+          && s->getHeight() == site->getHeight()) {
+        return orient;
+      }
+    }
   }
 
   return {};

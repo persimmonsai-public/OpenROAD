@@ -54,6 +54,8 @@ detailed_placement
     [-disable_window_extension]
     [-quiet]
     [-precise_pg]
+    [-extended_recovery]
+    [-match_sites_by_geometry]
 ```
 
 #### Options
@@ -73,6 +75,8 @@ detailed_placement
 | `-drc_penalty` | NegotiationLegalizer: priority to DRC violations, ramped up each iteration to push DRC cleanup later in the run. Lower values tolerate DRC violations early on while overlaps are resolved. Default `5`, `0` allowed (disables the escalating per-candidate penalty, DRC-violating cells still accrue history cost separately). |
 | `-quiet` | Less verbose, shows: number of instances moves, displacement, HPWL, and runtime at logs and json. Use it when dpl is called by other stages (e.g. after clock tree synthesis or antenna repair). |
 | `-precise_pg` | Precise power-grid-aware blocked-layer check. By default a vertical special-net wire on the second or third routing layer blocks every site it covers for any instance that has pins on that layer or the one below. With this flag that pixel mask is only a pre-filter: legality is decided from the instance's pin and obstruction rectangles on the wire's layer (in the orientation it will be placed in) against the wire rectangles bloated by the layer's minimum `SPACING`. The setting stays on for later `detailed_placement`, `check_placement` and `improve_placement` calls in the session. Setting the environment variable `DPL_PRECISE_PG=1` has the same effect. |
+| `-extended_recovery` | NegotiationLegalizer: opt-in extra recovery for dense designs on technologies whose track pitch is not an integer multiple of the site width. Before negotiation, cells are shifted out of rows whose total cell width exceeds the row's site capacity; stalled cells are recovered with a cluster-aware rip-up, a widened diamond search and equal-footprint swaps; cells still illegal at the end are placed at the nearest overlap-free site, accepting DRC violations over physical overlaps; and a cell is accepted in a row only if every column of its footprint offers the cell's site. The setting stays on for later calls in the session. Setting the environment variable `DPL_EXTENDED_RECOVERY=1` has the same effect. Off by default; results are then unchanged. |
+| `-match_sites_by_geometry` | If the exact site object is not found on a row, also match sites by name and then by width and height. Useful when several LEF files define the same site, or when variants of a site (for example power-gated ones) share its dimensions. The setting stays on for later calls in the session. Setting `DPL_MATCH_SITES_BY_GEOMETRY=1` has the same effect. Off by default. |
 
 The PDN-aware check covers overlap, conservative width/parallel-run-length
 routing spacing, and default cut spacing, with same-net pin exemptions.

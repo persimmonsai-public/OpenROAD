@@ -171,6 +171,18 @@ void NegotiationLegalizer::legalize()
     debug_observer_->redrawAndPause();
   }
 
+  // --- Part 1b: Row overflow pre-balancing (opt-in) ---
+  if (opendp_->isExtendedRecovery()) {
+    rebalanceOverflowRows();
+    // Cells moved by the rebalance may have become illegal (or legal).
+    illegal.clear();
+    for (int i = 0; i < static_cast<int>(cells_.size()); ++i) {
+      if (!cells_[i].fixed && !cells_[i].legal) {
+        illegal.push_back(i);
+      }
+    }
+  }
+
   // --- Part 2: Negotiation (main legalization) -------------------
   if (!illegal.empty()) {
     debugPrint(logger_,
@@ -188,6 +200,12 @@ void NegotiationLegalizer::legalize()
   // is correctly painted so subsequent DRC checks (numViolations, etc.)
   // see the true placement state.
   syncAllCellsToDplGrid();
+
+  // Opt-in: place cells that are still illegal at the nearest overlap-free
+  // site, accepting DRC violations over physical overlaps.
+  if (opendp_->isExtendedRecovery()) {
+    drcTolerantRecovery();
+  }
 
   debugPause("Pause after negotiation pass");
 
@@ -890,14 +908,20 @@ bool NegotiationLegalizer::isValidRow(int rowIdx,
     auto* dbMaster = cell.db_inst->getMaster();
     odb::dbSite* site = dbMaster->getSite();
     if (site != nullptr) {
-      const auto orient = opendp_->grid_->getSiteOrientation(
-          GridX{gridX}, GridY{rowIdx}, site);
-      if (!orient) {
-        return false;
-      }
       const unsigned masterSym = DetailedOrient::getMasterSymmetry(dbMaster);
-      if (!opendp_->checkMasterSym(masterSym, orient.value())) {
-        return false;
+      // checkInRows (the final validation) tests every column of the
+      // footprint.  With extended recovery on, do the same here so a cell is
+      // not accepted at a position that is rejected later.
+      const int columns = opendp_->isExtendedRecovery() ? cell.width : 1;
+      for (int dx = 0; dx < columns; ++dx) {
+        const auto orient = opendp_->grid_->getSiteOrientation(
+            GridX{gridX + dx}, GridY{rowIdx}, site);
+        if (!orient) {
+          return false;
+        }
+        if (!opendp_->checkMasterSym(masterSym, orient.value())) {
+          return false;
+        }
       }
     }
     Node* node = cell.node;

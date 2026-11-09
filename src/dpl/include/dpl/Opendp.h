@@ -154,6 +154,16 @@ class Opendp
   // environment variable DPL_PRECISE_PG=1 also enables it).
   void setPrecisePg(bool enable) { precise_pg_ = enable; }
   bool isPrecisePg() const;
+  // Opt-in extra recovery steps in the negotiation legalizer (sticky once
+  // enabled; the environment variable DPL_EXTENDED_RECOVERY=1 also enables
+  // it).
+  void setExtendedRecovery(bool enable) { extended_recovery_ = enable; }
+  bool isExtendedRecovery() const;
+  // Opt-in: match row sites by name, then by dimensions, when the exact site
+  // object is not found (sticky once enabled; DPL_MATCH_SITES_BY_GEOMETRY=1
+  // also enables it).
+  void setMatchSitesByGeometry(bool enable);
+  bool isMatchSitesByGeometry() const;
   void fillerPlacement(const dbMasterSeq& filler_masters,
                        const char* prefix,
                        bool verbose);
@@ -453,6 +463,8 @@ class Opendp
   int negotiation_diamond_recoveries_ = 0;
   std::string negotiation_finish_ = "not run";
   bool precise_pg_ = false;
+  bool extended_recovery_ = false;
+  bool match_sites_by_geometry_ = false;
 
   // Magic numbers
   static constexpr double group_refine_percent_ = .05;
