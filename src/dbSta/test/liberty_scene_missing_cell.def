@@ -1,0 +1,31 @@
+VERSION 5.8 ;
+DIVIDERCHAR "/" ;
+BUSBITCHARS "[]" ;
+DESIGN top ;
+UNITS DISTANCE MICRONS 2000 ;
+COMPONENTS 3 ;
+    - ram fakeram45_64x7 ;
+    - u1 BUF_X1 ;
+    - u2 BUF_X1 ;
+END COMPONENTS
+PINS 3 ;
+    - clk + NET clk + DIRECTION INPUT + USE SIGNAL ;
+    - in + NET in + DIRECTION INPUT + USE SIGNAL ;
+    - out + NET out + DIRECTION OUTPUT + USE SIGNAL ;
+END PINS
+NETS 11 ;
+    - clk ( PIN clk ) ( ram clk ) + USE SIGNAL ;
+    - in ( PIN in ) ( u1 A ) + USE SIGNAL ;
+    - n1 ( u1 Z ) ( ram we_in ) ( ram wd_in[6] ) ( ram wd_in[5] ) ( ram wd_in[4] ) ( ram wd_in[3] ) ( ram wd_in[2] )
+      ( ram wd_in[1] ) ( ram wd_in[0] ) ( ram w_mask_in[6] ) ( ram w_mask_in[5] ) ( ram w_mask_in[4] ) ( ram w_mask_in[3] ) ( ram w_mask_in[2] ) ( ram w_mask_in[1] )
+      ( ram w_mask_in[0] ) ( ram ce_in ) ( ram addr_in[5] ) ( ram addr_in[4] ) ( ram addr_in[3] ) ( ram addr_in[2] ) ( ram addr_in[1] ) ( ram addr_in[0] ) + USE SIGNAL ;
+    - out ( PIN out ) ( u2 Z ) + USE SIGNAL ;
+    - rd[0] ( u2 A ) ( ram rd_out[0] ) + USE SIGNAL ;
+    - rd[1] ( ram rd_out[1] ) + USE SIGNAL ;
+    - rd[2] ( ram rd_out[2] ) + USE SIGNAL ;
+    - rd[3] ( ram rd_out[3] ) + USE SIGNAL ;
+    - rd[4] ( ram rd_out[4] ) + USE SIGNAL ;
+    - rd[5] ( ram rd_out[5] ) + USE SIGNAL ;
+    - rd[6] ( ram rd_out[6] ) + USE SIGNAL ;
+END NETS
+END DESIGN
